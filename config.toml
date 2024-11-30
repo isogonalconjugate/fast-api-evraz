@@ -1,0 +1,15 @@
+[llm]
+model_name = "qwen2.5-coder:3b"
+
+[paths]
+unzip_dir = "temp_unzipped"
+prompts = "app/llm_prompts/prompts.json"
+errors_list = "app/llm_prompts/errors_list.json"
+logs = "logs/app.log"
+
+[logging]
+level = "INFO"
+file = "logs/app.log"
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+max_bytes = 10485760  # 10 MB
+backup_count = 5

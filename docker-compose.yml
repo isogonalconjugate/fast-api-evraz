@@ -1,0 +1,35 @@
+# docker-compose.yml
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: fastapi_backend
+    restart: always
+    volumes:
+      - ./app:/usr/src/app/app
+      - ./config.toml:/usr/src/app/config.toml
+      - ./logs:/usr/src/app/logs
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: gradio_frontend
+    restart: always
+    volumes:
+      - ./front.py:/usr/src/app/front.py
+      - ./config.toml:/usr/src/app/config.toml
+    ports:
+      - "7860:7860"
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - backend

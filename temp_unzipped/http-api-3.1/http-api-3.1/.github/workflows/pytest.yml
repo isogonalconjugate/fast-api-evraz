@@ -1,0 +1,146 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Cancel previous running jobs on the same branch in case of new pushs
+concurrency:
+  group: http-api-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      matrix:
+        template:
+          [
+            noauth,
+            low_security,
+            extra,
+            legacy39,
+            legacy310,
+            legacy311,
+            neo4j,
+            postgres,
+            celery-redis-redis,
+            celery-rabbit-redis,
+            celery-rabbit-rabbit,
+          ]
+        mode: [dev, prod]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        env:
+          REF_BRANCH: ${{ github.ref }}
+          HEAD_REF_BRANCH: ${{ github.head_ref }}
+
+        run: |
+
+          # Randomize auth service to test some services
+          # double neo4j to balance with sql databases
+          auth_services=(postgres neo4j)
+          RANDOM_AUTH=${auth_services[$(($RANDOM % ${#auth_services[@]}))]}
+          echo "Selected random authentication service = ${RANDOM_AUTH}"
+          # Make the environment variable available to next steps
+          echo "RANDOM_AUTH=${RANDOM_AUTH}" >> $GITHUB_ENV
+
+          python -m pip install --upgrade pip
+          CURRENT_VERSION=$(grep __version__ restapi/__init__.py | sed 's/__version__ = //' | tr -d '"')
+          pip install --upgrade --no-cache-dir git+https://github.com/rapydo/do.git@${CURRENT_VERSION}
+          rapydo --version
+
+          mkdir ${{ matrix.template }}.${{ matrix.mode }}
+          cd ${{ matrix.template }}.${{ matrix.mode }}
+          rapydo install compose
+          bash ../tests/create_template.sh ${{ matrix.template }} ${RANDOM_AUTH}
+
+      - name: DEV Tests
+        if: ${{ matrix.mode == 'dev' }}
+        run: |
+          cd ${{ matrix.template }}.${{ matrix.mode }}
+          rapydo --testing --project prj init
+          rapydo pull --quiet
+          bash ../tests/customize_template.sh ${{ matrix.template }}
+          rapydo start
+          sleep 25
+          rapydo logs
+
+          if [[ "${{github.actor}}" == "renovate[bot]" ]] || [[ "${{github.event_name}}" == "pull_request" ]] || [[ "${{github.event.pull_request.merged}}" == "true" ]]; then
+            # Do not install at root level to prevent:
+            # ERROR: Could not install packages due to an OSError:
+            #        [Errno 16] Device or resource busy: '/usr/local/lib/python3.10/dist-packages/restapi/'
+            rapydo shell backend -u developer 'bash -c "pip3 install /http-api-package"'
+          fi
+
+          rapydo shell backend 'restapi tests --core --wait --destroy'
+
+          LOGURU_LEVEL=WARNING rapydo list services
+          # This should fail if at least one container is in Exit status
+          [[ ! $(LOGURU_LEVEL=WARNING rapydo list services | grep -E "Exit|Restarting|Created") ]]
+
+      - name: PROD Tests
+        if: ${{ matrix.mode == 'prod' }}
+        run: |
+          cd ${{ matrix.template }}.${{ matrix.mode }}
+
+          rapydo --testing --production --project prj init --force
+          rapydo pull --quiet
+          bash ../tests/customize_template.sh ${{ matrix.template }}
+          rapydo ssl --volatile
+          rapydo start
+          # wait for all services to start (60 is needed in case of rabbit + neo4j)
+          sleep 60
+          rapydo logs
+          curl --insecure -X GET --max-time 5 https://localhost/api/status | grep "Server is alive"
+          rapydo logs --tail 20 proxy backend
+
+          if [[ "${{github.actor}}" == "renovate[bot]" ]] || [[ "${{github.event_name}}" == "pull_request" ]] || [[ "${{github.event.pull_request.merged}}" == "true" ]]; then
+            # Do not install at root level to prevent:
+            # ERROR: Could not install packages due to an OSError:
+            #        [Errno 16] Device or resource busy: '/usr/local/lib/python3.10/dist-packages/restapi/'
+            rapydo shell backend -u developer 'bash -c "pip3 install /http-api-package"'
+            rapydo reload backend
+          fi
+
+          rapydo shell backend 'restapi tests --core --wait'
+
+          LOGURU_LEVEL=WARNING rapydo list services
+          # This should fail if at least one container is in Exit status
+          # Except for frontend that is expected to be exited in prod mode
+          [[ ! $(LOGURU_LEVEL=WARNING rapydo list services | grep -v frontend | grep -E "Exit|Restarting|Created") ]]
+
+      - name: Coverage
+        uses: rapydo/actions/coverage@v2
+        with:
+          repository: ${{ matrix.template }}.${{ matrix.mode }}/submodules/http-api
+          project: prj
+          step: backend
+
+      - name: Print Logs
+        if: failure()
+        run: tail -200 ${{ matrix.template }}.${{ matrix.mode }}/data/logs/backend-server.log
+
+      - name: Print Events
+        if: failure()
+        run: tail -100 ${{ matrix.template }}.${{ matrix.mode }}/data/logs/security-events.log
+
+      - name: Print mocked email on failure
+        if: failure()
+        run: cat ${{ matrix.template }}.${{ matrix.mode }}/data/logs/mock.mail.*.body 2>/dev/null || true
+
+      - name: Docker Logs
+        if: failure()
+        run: |
+          cd ${{ matrix.template }}.${{ matrix.mode }}
+
+          rapydo logs
