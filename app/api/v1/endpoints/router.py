@@ -7,7 +7,7 @@ import os
 from app.core.utils.unzip import unzip_file
 from app.core.analysis.tree_parser import parse_project_tree
 from app.core.config import Config
-from app.services.llm_integration import LLMIntegration
+from app.services.llm_model import LLMModel
 from app.core.logger import logger
 from app.core.utils.pdf_generator import generate_pdf_report
 import json
@@ -42,95 +42,65 @@ async def upload_zip(file: UploadFile = File(...)):
         logger.error(f"Ошибка при разархивировании файла: {e}")
         raise HTTPException(status_code=400, detail="Некорректный ZIP-файл")
 
-    # Анализируем структуру проекта
+    # Устанавливаем project_root в конфигурации
+    config.set_project_root(extract_to)
+
+    # Инициализируем LLMModel без передачи project_root
+    llm_model = LLMModel(model_name=config.llm.model_name)
+
+    # Загрузка правил из rules.json
     try:
-        project_tree = parse_project_tree(extract_to)
-        logger.debug(f"Дерево проекта: {project_tree}")
+        with open(config.paths.rules, 'r', encoding='utf-8') as f:
+            rules = json.load(f)
+        logger.info("Правила загружены из rules.json.")
     except Exception as e:
-        logger.error(f"Ошибка при анализе дерева проекта: {e}")
+        logger.error(f"Ошибка при загрузке правил: {e}")
         raise HTTPException(status_code=500, detail="Ошибка сервера")
 
-    # Загрузка файлов для анализа
-    code_texts = []
-    binary_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.exe', '.dll', '.so', '.class', '.jar']
-    for root, dirs, files in os.walk(extract_to):
-        for filename in files:
-            file_path = os.path.join(root, filename)
-            if any(filename.lower().endswith(ext) for ext in binary_extensions):
-                logger.debug(f"Пропускаем бинарный файл: {file_path}")
-                continue
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    code_texts.append(f"---\nФайл: {file_path}\n---\n{content}")
-            except (UnicodeDecodeError, PermissionError) as e:
-                logger.warning(f"Не удалось прочитать файл {file_path}: {e}")
-                continue
+    # Получение дерева проекта в виде строки
+    project_tree_str = generate_project_tree_string(extract_to)
 
-    combined_code = "\n\n".join(code_texts)
-    logger.info("Собранный код из всех читаемых файлов.")
+    # Инициализация списка для хранения результатов анализа
+    analysis_results = []
 
-    # Загрузка промпта для LLM
+    # Обработка каждого правила
+    for rule_obj in rules:
+        rule = rule_obj['rule']
+        logger.info(f"Анализ правила: {rule}")
+        analysis_result = llm_model.analyze_rule(rule, project_tree_str)
+        if analysis_result:
+            analysis_results.append(analysis_result)
+
+    # Проверяем, есть ли результаты анализа
+    if not analysis_results:
+        return {"detail": "Ошибок не обнаружено."}
+
+    # Генерация PDF отчета на основе результатов анализа
     try:
-        with open(config.paths.prompts, 'r', encoding='utf-8') as f:
-            prompts = json.load(f)
-        prompt_template = prompts.get('code_analysis_prompt', '')
-    except Exception as e:
-        logger.error(f"Ошибка при загрузке промптов: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сервера")
-
-    # Загрузка списка потенциальных ошибок из JSON файла
-    try:
-        with open(config.paths.errors_list, 'r', encoding='utf-8') as f:
-            errors_list = json.load(f)
-        # Проверка, что errors_list является списком строк
-        if not isinstance(errors_list, list) or not all(isinstance(err, str) for err in errors_list):
-            logger.error("Некорректный формат errors_list.json")
-            raise HTTPException(status_code=500, detail="Ошибка сервера")
-        # Преобразуем список ошибок в строку
-        errors = '\n'.join(errors_list)
-        logger.info("Список ошибок загружен из JSON файла.")
-    except Exception as e:
-        logger.error(f"Ошибка при загрузке списка ошибок: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сервера")
-
-    # Формируем промпт
-    prompt = prompt_template.format(code=combined_code, errors=errors)
-    logger.debug("Сформирован промпт для LLM.")
-
-    # Инициализация LLM
-    try:
-        llm = LLMIntegration(model_name=config.llm.model_name)
-    except Exception as e:
-        logger.error(f"Ошибка при инициализации LLM: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сервера")
-
-    # Анализ кода
-    try:
-        analysis_result = llm.analyze_code(prompt)
-        logger.info("Анализ кода завершен.")
-    except Exception as e:
-        logger.error(f"Ошибка во время анализа кода: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сервера")
-
-    # Генерация PDF отчета
-    try:
-        pdf_bytes = generate_pdf_report(analysis_result)
+        pdf_bytes = generate_pdf_report('\n\n'.join(analysis_results))
         logger.info("PDF отчет успешно сгенерирован.")
     except Exception as e:
         logger.error(f"Ошибка при генерации PDF отчета: {e}")
         raise HTTPException(status_code=500, detail="Ошибка при генерации отчета")
 
-    # Создание объекта BytesIO для отправки файла
+    # Отправка PDF отчета клиенту
     pdf_file = BytesIO(pdf_bytes)
     pdf_file.seek(0)
-
-    logger.info("Отправка PDF отчета клиенту.")
-
-    # Возвращаем PDF как StreamingResponse
     return StreamingResponse(
         pdf_file,
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename=report_{os.path.splitext(os.path.basename(file.filename))[0]}.pdf"}
     )
+
+
+def generate_project_tree_string(root_dir):
+    tree_lines = []
+    for root, dirs, files in os.walk(root_dir):
+        level = root.replace(root_dir, '').count(os.sep)
+        indent = ' ' * 4 * level
+        tree_lines.append(f"{indent}{os.path.basename(root)}/")
+        subindent = ' ' * 4 * (level + 1)
+        for f in files:
+            tree_lines.append(f"{subindent}{f}")
+    return '\n'.join(tree_lines)

@@ -5,7 +5,9 @@ model_name = "qwen2.5-coder:3b"
 unzip_dir = "temp_unzipped"
 prompts = "app/llm_prompts/prompts.json"
 errors_list = "app/llm_prompts/errors_list.json"
+rules = "app/llm_prompts/rules.json"
 logs = "logs/app.log"
+project_root = "/Users/michaotic/Documents/GitHub/fast-api-evraz"  # Оставляем пустым, так как путь будет динамическим
 
 [logging]
 level = "INFO"

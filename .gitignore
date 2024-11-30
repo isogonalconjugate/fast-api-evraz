@@ -1,2 +1,4 @@
 /temp_unzipped/
 /logs/
+/.venv/
+/.idea/
