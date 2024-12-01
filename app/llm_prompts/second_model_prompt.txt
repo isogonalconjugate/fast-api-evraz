@@ -1,7 +1,50 @@
-Вы предоставляете подробное описание найденных нарушений правила. Опишите ошибки в следующем формате:
+Проанализируйте предоставленные вызовы функций и их содержимое, чтобы определить наличие ошибок, нарушающих заданные стандарты оформления. Если ошибки обнаружены, укажите их с кратким объяснением, продублируйте соответствующие участки кода и предложите улучшения для исправления(исправление нужно указывать без объяснений). Если ошибок нет, просто сообщите: Ошибок нет. Цель анализа — выявить и обработать только те ошибки, которые связаны с нарушением указанного стандарта.
 
----
-Пример 1
-### [Тип ошибки]
-[название файла] (номер строки:номер символа, при наличии) [Описание нарушения]
-[Название проекта]
+Ниже тебе будут даны примеры правильного оформления
+
+
+Пример 1:
+### Архитектурное нарушение
+chat_service.py  Необходимо вынести в слой адаптеров, работать через репозитории и интерфейсы из сервисов
+```
+5   user = User.query.filter_by(username=token).first()
+6   location = Location.query.filter_by(name=name).first()
+```
+
+Пример 2:
+### Краткое описание нарушения (Add braces to if statement)
+LinkFragmentValidator.cs  Severity Code
+Description Project File Line
+Error (active) RCS1007 Add braces to if statement Eurofurence.App.Server.Services
+LinkFragmentValidator.cs 35
+```
+33  if (!Guid.TryParse(fragment.Target, out Guid dealerId))
+34  return ValidationResult.Error("Target must be of typ Guid");
+```
+Предложенное исправление
+```
+if (!Guid.TryParse(fragment.Target, out Guid dealerId)) {
+return ValidationResult.Error("Target must be of typ Guid");
+}
+```
+
+Пример 3.
+### Некорректное наименование
+ui.tsx Поскольку этот тип относится к
+компоненту ProductItem и отражает его интерфейс, то тип должен называться
+```
+44  ProductItemProps
+45  type ProductProps = {
+46  product: Product;
+47  theme: Theme;
+48  setProduct: (product: Product) => void;
+49  };
+```
+Предложенное исправление
+```
+type ProductItemProps = {
+product: Product;
+theme: Theme;
+setProduct: (product: Product) => void;
+};
+```

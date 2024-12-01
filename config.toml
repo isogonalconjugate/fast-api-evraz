@@ -7,7 +7,7 @@ prompts = "app/llm_prompts/prompts.json"
 errors_list = "app/llm_prompts/errors_list.json"
 rules = "app/llm_prompts/rules.json"
 logs = "logs/app.log"
-project_root = ""  # Оставляем пустым, так как путь будет динамическим
+project_root = "temp_unzipped/fast-api-evraz copy"  # Оставляем пустым, так как путь будет динамическим
 
 [logging]
 level = "INFO"

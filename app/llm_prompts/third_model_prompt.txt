@@ -2,4 +2,5 @@
 
 Пример:
 
-{"passed": false}
+{"passed": False}
+{"passed": True}

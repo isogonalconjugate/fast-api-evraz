@@ -15,10 +15,14 @@ class LLMModel:
         self.model_name = model_name
         logger.info(f"LLMModel инициализирован с моделью: {self.model_name}")
         self.config = Config()
+        self.rule = ""
+        self.project_tree = None
 
     def analyze_rule(self, rule):
+        self.rule = rule
         # Получаем дерево проекта
         project_tree = format_project_tree()
+        self.project_tree = project_tree
 
         # Загрузка системного промпта для первой модели
         system_prompt = self.load_prompt('first_model_prompt.txt')
@@ -26,7 +30,8 @@ class LLMModel:
         # Подготовка сообщений для первой модели
         messages = [
             {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': f"Правило:\n{rule}\n\nДерево проекта:\n{project_tree}"}
+            {'role': 'user', 'content': f"Стандарт:\n{rule}\n\n Дерево проекта:\n{project_tree}\n"
+                                        f"Тебе нужно понять какая информация может быть необходима для проверки соответствия кода стандарту"}
         ]
 
         # Определение доступных функций
@@ -39,6 +44,8 @@ class LLMModel:
         # Подготовка инструментов для ollama
         tools = [self.get_function_definition(func_name, func) for func_name, func in available_functions.items()]
 
+        logger.info(f"СООБЩЕНИЯ В КОНТЕКСТЕ 1 МОДЕЛИ: {messages}")
+
         # Запуск первой модели
         response = ollama.chat(
             model=self.model_name,
@@ -46,7 +53,9 @@ class LLMModel:
             tools=tools
         )
 
+        logger.info(f"Ответ: {response.message.content}")
         # Обработка вызовов функций
+        messages = []
         if response.message.tool_calls:
             for tool in response.message.tool_calls:
                 logger.info(f"Processing tool: {tool}")
@@ -57,15 +66,9 @@ class LLMModel:
                     logger.info(f"Вызов функции: {func_name} с аргументами {func_args}")
                     output = func(**func_args)
                     logger.info(f"Вывод функции: {output[:500]}...")  # Логируем первые 500 символов
-                    messages.append(response.message)
                     messages.append({'role': 'tool', 'content': output, 'name': func_name})
 
                     # Повторный запуск модели с новым сообщением
-                    response = ollama.chat(
-                        model=self.model_name,
-                        messages=messages,
-                        tools=tools
-                    )
                 else:
                     logger.warning(f"Функция {func_name} не найдена.")
         else:
@@ -75,11 +78,12 @@ class LLMModel:
         logger.info(f"Вывод первой модели: {first_model_output}")
 
         # Запуск второй модели
-        second_model_output = self.run_second_model(first_model_output)
+        second_model_output = self.run_second_model(messages)
         logger.info(f"Вывод второй: {second_model_output}")
 
         # Запуск третьей модели
         passed = self.run_third_model(second_model_output)
+        logger.info(f"Вывод третьей: {passed}")
 
         # Возврат результата
         if not passed:
@@ -87,12 +91,14 @@ class LLMModel:
         else:
             return None
 
-    def run_second_model(self, first_model_output):
-        system_prompt = self.load_prompt('second_model_prompt.txt')
-        messages = [
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': first_model_output}
-        ]
+    def run_second_model(self, messages):
+        prompt = self.load_prompt('second_model_prompt.txt')
+        messages.append({'role': 'system', 'content': f"Ты проверяешь код на соответствие стандарта с учётом вызова функций до этого "
+                                                      f"и хнания общей структуры проекта"
+                                                      f"Ориентируйся на соблюдение нужноо формата. Кратко предлагай исправления ошибок, если они есть."
+                                                      f"Если огибок нет, напиши, что огибок нет"})
+        messages.append({'role': 'user', 'content': f"Дерево проекта: {self.project_tree}\n\nСтандарт: {self.rule}\n\n"})
+        logger.info(f"СООБЩЕНИЯ В КОНТЕКСТЕ 2 МОДЕЛИ: {messages}")
         response = ollama.chat(
             model=self.model_name,
             messages=messages
@@ -105,12 +111,15 @@ class LLMModel:
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': second_model_output}
         ]
+
+        logger.info(f"СООБЩЕНИЯ В КОНТЕКСТЕ 3 МОДЕЛИ: {messages}")
         response = ollama.chat(
             model=self.model_name,
             messages=messages
         )
         try:
             result = json.loads(response.message.content)
+            logger.info(result)
             return result.get('passed', True)
         except json.JSONDecodeError:
             logger.error("Ответ третьей модели не является валидным JSON.")

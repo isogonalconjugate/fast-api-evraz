@@ -17,6 +17,7 @@ class PathsConfig:
         self.rules = config.get('rules', 'app/llm_prompts/rules.json')
         self.logs = config.get('logs', 'logs/app.log')
         self.project_root = config.get('project_root', None)
+        print("бля")
 
 
 class LoggingConfig:
@@ -55,3 +56,5 @@ class Config:
     def set_project_root(self, path):
         """Устанавливает корневой каталог проекта."""
         self.paths.project_root = path
+        print("пизда")
+        print(self.paths.project_root)
