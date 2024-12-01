@@ -5,18 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fb384b58-2fe0-4611-bd1d-d063aa817159" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app/llm_prompts/rules.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/v1/endpoints/router.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/endpoints/router.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/core/utils/code_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/utils/code_analysis.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/core/utils/pdf_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/utils/pdf_generator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/llm_prompts/first_model_prompt.txt" beforeDir="false" afterPath="$PROJECT_DIR$/app/llm_prompts/first_model_prompt.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/utils/logs/app.log" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/utils/logs/app.log" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/services/llm_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/llm_model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.toml" beforeDir="false" afterPath="$PROJECT_DIR$/config.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/unit/logs/app.log" beforeDir="false" afterPath="$PROJECT_DIR$/tests/unit/logs/app.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/unit/tools.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/unit/tools.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/unit/utils_file.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/unit/utils_file.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -42,22 +36,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.code_analysis.executor": "Run",
-    "Python.tools.executor": "Run",
-    "Python.utils_file.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.code_analysis.executor&quot;: &quot;Run&quot;,
+    &quot;Python.llm_model.executor&quot;: &quot;Run&quot;,
+    &quot;Python.tools.executor&quot;: &quot;Run&quot;,
+    &quot;Python.utils_file.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -75,7 +70,7 @@
       <option name="presentableId" value="Default" />
       <updated>1732983863234</updated>
       <workItem from="1732983864345" duration="6421000" />
-      <workItem from="1732991419401" duration="18651000" />
+      <workItem from="1732991419401" duration="20432000" />
     </task>
     <servers />
   </component>
@@ -83,8 +78,9 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/fast_api_evraz$utils_file.coverage" NAME="utils_file Coverage Results" MODIFIED="1733011727866" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/unit" />
+    <SUITE FILE_PATH="coverage/fast_api_evraz$utils_file.coverage" NAME="utils_file Coverage Results" MODIFIED="1733017977284" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/unit" />
     <SUITE FILE_PATH="coverage/fast_api_evraz$tools.coverage" NAME="tools Coverage Results" MODIFIED="1733004930820" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests/unit" />
-    <SUITE FILE_PATH="coverage/fast_api_evraz$code_analysis.coverage" NAME="code_analysis Coverage Results" MODIFIED="1733010938753" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/core/utils" />
+    <SUITE FILE_PATH="coverage/fast_api_evraz$llm_model.coverage" NAME="llm_model Coverage Results" MODIFIED="1733017439101" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/services" />
+    <SUITE FILE_PATH="coverage/fast_api_evraz$code_analysis.coverage" NAME="code_analysis Coverage Results" MODIFIED="1733018255841" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/core/utils" />
   </component>
 </project>

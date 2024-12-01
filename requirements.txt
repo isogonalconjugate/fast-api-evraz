@@ -9,3 +9,6 @@ ollama
 flake8
 markdown
 pdfkit
+nltk
+rank-bm25
+

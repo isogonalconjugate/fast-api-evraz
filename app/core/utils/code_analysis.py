@@ -8,6 +8,12 @@ import nltk
 from nltk.tokenize import word_tokenize
 import mimetypes
 
+import ssl
+
+# Bypass SSL verification
+ssl._create_default_https_context = ssl._create_unverified_context
+nltk.download('punkt')
+
 # Загрузка необходимых данных NLTK
 nltk.download('punkt', quiet=True)
 nltk.download('punkt_tab')
@@ -15,6 +21,7 @@ nltk.download('punkt_tab')
 
 config = Config()
 project_root = config.paths.project_root
+logger.info(f'Project root!: {project_root}')
 
 
 def get_file_content_with_line_numbers(paths, extension_filter=None, max_lines_per_file=100):

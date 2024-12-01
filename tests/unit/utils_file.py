@@ -7,9 +7,13 @@ from app.core.utils.code_analysis import (
 #    ["app/core/utils/code_analysis.py"],
 #    ".py"))
 
-# print(search_in_files(
-#     ["print"],
-#     max_results=15
-#     ))
+print(search_in_files(
+    **{'file_types': ['.py'], 'max_results': 5, 'terms': ['print']}
+    ))
 
 print(check_pep8_compliance(max_errors=10))
+
+print(search_in_files(
+    terms= ['print'],
+    file_types= ['.py'],
+    ))
