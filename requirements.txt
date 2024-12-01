@@ -7,6 +7,5 @@ reportlab
 gradio
 ollama
 flake8
-scikit-learn
-numpy
-rank-bm25
+markdown
+pdfkit

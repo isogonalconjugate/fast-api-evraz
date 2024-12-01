@@ -1,5 +1,6 @@
 import ollama
 
+
 # Определяем функцию для проверки кода
 def check_code_for_errors(code_snippet):
     # Формируем системное сообщение, направляющее модель на возврат JSON с полем Errors

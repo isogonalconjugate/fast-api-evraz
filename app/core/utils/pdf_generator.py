@@ -1,76 +1,96 @@
-# app/core/utils/pdf_generator.py
-
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.units import mm
-from io import BytesIO
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
-from reportlab.lib.enums import TA_LEFT
-import logging
+import markdown
+import pdfkit
+import os
+from app.core.logger import logger
+from app.core.config import Config
 
 
-def generate_pdf_report(analysis_result: str) -> bytes:
+def generate_pdf_report(md_content: str) -> bytes:
     """
-    Генерирует PDF-отчет на основе результатов анализа.
+    Конвертирует строку в формате Markdown в PDF и возвращает PDF в виде байтов.
+    При этом сохраняются стилистические элементы, такие как блоки кода, цитаты и прочее.
 
-    :param analysis_result: Строка с результатами анализа от LLM.
+    :param md_content: Строка в формате Markdown.
     :return: PDF-отчет в виде байтов.
     """
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4,
-                            rightMargin=20*mm, leftMargin=20*mm,
-                            topMargin=20*mm, bottomMargin=20*mm)
-    elements = []
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name='Left', alignment=TA_LEFT, fontSize=12, leading=15))
+    # Получаем конфигурацию из config.toml
+    config = Config()
+    wkhtmltopdf_path = config.pdf.wkhtmltopdf_path
 
-    # Заголовок
-    title = Paragraph("Отчет по анализу кода", styles['Title'])
-    elements.append(title)
-    elements.append(Spacer(1, 12))
+    # Проверяем наличие wkhtmltopdf
+    if not os.path.exists(wkhtmltopdf_path):
+        logger.error(f"wkhtmltopdf не найден по пути: {wkhtmltopdf_path}")
+        raise FileNotFoundError(f"wkhtmltopdf не найден по пути: {wkhtmltopdf_path}")
 
-    # Разделение результатов на ошибки
-    errors = analysis_result.split("\n\n")  # Предполагаем, что ошибки разделены двойными переносами
+    # Конфигурация для pdfkit
+    pdfkit_config = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf_path)
 
-    for error in errors:
-        if not error.strip():
-            continue  # Пропускаем пустые строки
-        # Разделение на части: описание ошибки, код, предложение
-        # Предполагаем, что каждая ошибка содержит:
-        # - Описание ошибки
-        # - Блок кода
-        # - Предложение по улучшению
+    # Стили для улучшенного отображения
+    css = '''
+    @font-face {
+        font-family: "Liberation Sans";
+        src: local("Liberation Sans"), local("DejaVu Sans");
+    }
+    body {
+        font-family: "Liberation Sans", "Arial", sans-serif;
+        font-size: 12pt;
+        line-height: 1.5;
+        word-wrap: break-word;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #333;
+        font-weight: bold;
+    }
+    h1 {
+        font-size: 24pt;
+    }
+    h2 {
+        font-size: 20pt;
+    }
+    h3 {
+        font-size: 18pt;
+    }
+    pre, code {
+        background-color: #f4f4f4;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 9pt;
+        overflow-x: auto;
+    }
+    blockquote {
+        background-color: #f0f0f0;
+        border-left: 5px solid #ccc;
+        padding: 10px 15px;
+        margin: 10px 0;
+        font-style: italic;
+    }
+    ul, ol {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+    li {
+        margin: 5px 0;
+    }
+    '''
+    css_file = 'temp_style.css'
+    with open(css_file, 'w', encoding='utf-8') as f:
+        f.write(css)
 
-        # Можно использовать регулярные выражения или иной способ разделения
-        # Здесь используем простой разделитель "---"
+    # Конвертируем строку Markdown в HTML
+    html_content = markdown.markdown(md_content, extensions=['fenced_code', 'codehilite'])
 
-        parts = error.split('---')
-        if len(parts) < 3:
-            continue  # Не соответствует ожидаемому формату
+    # Добавляем явное указание кодировки для HTML
+    html_content = f'<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Отчет по анализу кода</title></head><body>{html_content}</body></html>'
 
-        description = parts[0].strip()
-        code_block = parts[1].strip()
-        suggestion = parts[2].strip()
+    try:
+        # Конвертируем HTML в PDF
+        pdf_bytes = pdfkit.from_string(html_content, False, configuration=pdfkit_config, css=css_file)
+    except Exception as e:
+        logger.error(f"Ошибка при конвертации HTML в PDF: {e}")
+        raise
 
-        # Добавляем описание ошибки
-        desc_paragraph = Paragraph(f"<b>Ошибка:</b> {description}", styles['Left'])
-        elements.append(desc_paragraph)
-        elements.append(Spacer(1, 6))
+    # Удаляем временный файл CSS
+    os.remove(css_file)
 
-        # Добавляем блок кода
-        code_paragraph = Paragraph(f"<b>Код:</b><br/><pre>{code_block}</pre>", styles['Left'])
-        elements.append(code_paragraph)
-        elements.append(Spacer(1, 6))
-
-        # Добавляем предложение по улучшению
-        suggestion_paragraph = Paragraph(f"<b>Предложение:</b> {suggestion}", styles['Left'])
-        elements.append(suggestion_paragraph)
-        elements.append(Spacer(1, 12))
-
-    # Строим PDF
-    doc.build(elements)
-
-    pdf = buffer.getvalue()
-    buffer.close()
-    return pdf
+    return pdf_bytes

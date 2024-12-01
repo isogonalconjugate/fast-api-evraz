@@ -4,14 +4,14 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 import shutil
 import os
+import json
+from io import BytesIO
 from app.core.utils.unzip import unzip_file
-from app.core.analysis.tree_parser import parse_project_tree
 from app.core.config import Config
 from app.services.llm_model import LLMModel
 from app.core.logger import logger
 from app.core.utils.pdf_generator import generate_pdf_report
-import json
-from io import BytesIO
+from app.core.utils.code_analysis import format_project_tree
 
 router = APIRouter()
 config = Config()
@@ -31,7 +31,7 @@ async def upload_zip(file: UploadFile = File(...)):
         logger.info(f"Файл сохранен по пути: {zip_path}")
     except Exception as e:
         logger.error(f"Ошибка при сохранении файла: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сервера")
+        raise HTTPException(status_code=500, detail="Ошибка сервера при сохранении файла.")
 
     # Разархивируем файл
     extract_to = os.path.join(temp_dir, os.path.splitext(file.filename)[0])
@@ -40,7 +40,7 @@ async def upload_zip(file: UploadFile = File(...)):
         logger.info(f"Файл разархивирован в: {extract_to}")
     except Exception as e:
         logger.error(f"Ошибка при разархивировании файла: {e}")
-        raise HTTPException(status_code=400, detail="Некорректный ZIP-файл")
+        raise HTTPException(status_code=400, detail="Некорректный ZIP-файл.")
 
     # Устанавливаем project_root в конфигурации
     config.set_project_root(extract_to)
@@ -55,10 +55,10 @@ async def upload_zip(file: UploadFile = File(...)):
         logger.info("Правила загружены из rules.json.")
     except Exception as e:
         logger.error(f"Ошибка при загрузке правил: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка сервера")
+        raise HTTPException(status_code=500, detail="Ошибка сервера при загрузке правил.")
 
     # Получение дерева проекта в виде строки
-    project_tree_str = generate_project_tree_string(extract_to)
+    project_tree_str = format_project_tree()
 
     # Инициализация списка для хранения результатов анализа
     analysis_results = []
@@ -67,7 +67,7 @@ async def upload_zip(file: UploadFile = File(...)):
     for rule_obj in rules:
         rule = rule_obj['rule']
         logger.info(f"Анализ правила: {rule}")
-        analysis_result = llm_model.analyze_rule(rule, project_tree_str)
+        analysis_result = llm_model.analyze_rule(rule)
         if analysis_result:
             analysis_results.append(analysis_result)
 
@@ -81,7 +81,7 @@ async def upload_zip(file: UploadFile = File(...)):
         logger.info("PDF отчет успешно сгенерирован.")
     except Exception as e:
         logger.error(f"Ошибка при генерации PDF отчета: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка при генерации отчета")
+        raise HTTPException(status_code=500, detail="Ошибка при генерации отчета.")
 
     # Отправка PDF отчета клиенту
     pdf_file = BytesIO(pdf_bytes)
@@ -92,15 +92,3 @@ async def upload_zip(file: UploadFile = File(...)):
         headers={
             "Content-Disposition": f"attachment; filename=report_{os.path.splitext(os.path.basename(file.filename))[0]}.pdf"}
     )
-
-
-def generate_project_tree_string(root_dir):
-    tree_lines = []
-    for root, dirs, files in os.walk(root_dir):
-        level = root.replace(root_dir, '').count(os.sep)
-        indent = ' ' * 4 * level
-        tree_lines.append(f"{indent}{os.path.basename(root)}/")
-        subindent = ' ' * 4 * (level + 1)
-        for f in files:
-            tree_lines.append(f"{subindent}{f}")
-    return '\n'.join(tree_lines)

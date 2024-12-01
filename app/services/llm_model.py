@@ -8,13 +8,12 @@ from app.core.utils.code_analysis import (
     check_pep8_compliance,
     format_project_tree
 )
-from app.core.config import Config
+
 
 class LLMModel:
     def __init__(self, model_name):
         self.model_name = model_name
         logger.info(f"LLMModel инициализирован с моделью: {self.model_name}")
-        self.config = Config()
 
     def analyze_rule(self, rule):
         # Получаем дерево проекта
@@ -29,6 +28,9 @@ class LLMModel:
             {'role': 'user', 'content': f"Правило:\n{rule}\n\nДерево проекта:\n{project_tree}"}
         ]
 
+        # Логируем промпты
+        logger.info(f"Промпты перед вызовом первой модели:\n{json.dumps(messages, ensure_ascii=False, indent=2)}")
+
         # Определение доступных функций
         available_functions = {
             'file_content': self.file_content,
@@ -39,38 +41,50 @@ class LLMModel:
         # Подготовка инструментов для ollama
         tools = [self.get_function_definition(func_name, func) for func_name, func in available_functions.items()]
 
-        # Запуск первой модели
-        response = ollama.chat(
+        # Запуск первой модели с потоковой передачей
+        response_generator = ollama.chat(
             model=self.model_name,
             messages=messages,
-            tools=tools
+            tools=tools,
+            max_tokens=2048,
+            stream=True
         )
 
+        # Отображение ответа модели в реальном времени
+        first_model_output = self.display_stream_response(response_generator)
+
         # Обработка вызовов функций
-        if response.message.tool_calls:
-            for tool in response.message.tool_calls:
+        if hasattr(response_generator, 'tool_calls') and response_generator.tool_calls:
+            for tool in response_generator.tool_calls:
                 func_name = tool.function.name
                 func_args = tool.function.arguments
                 func = available_functions.get(func_name)
                 if func:
                     logger.info(f"Вызов функции: {func_name} с аргументами {func_args}")
                     output = func(**func_args)
-                    logger.info(f"Вывод функции: {output[:500]}...")  # Логируем первые 500 символов
-                    messages.append(response.message)
+                    logger.info(f"Вывод функции {func_name}:\n{output[:500]}...")
+
+                    messages.append({'role': 'assistant', 'content': first_model_output})
                     messages.append({'role': 'tool', 'content': output, 'name': func_name})
 
+                    # Логируем обновленные промпты
+                    logger.info(f"Промпты перед повторным вызовом первой модели:\n{json.dumps(messages, ensure_ascii=False, indent=2)}")
+
                     # Повторный запуск модели с новым сообщением
-                    response = ollama.chat(
+                    response_generator = ollama.chat(
                         model=self.model_name,
                         messages=messages,
-                        tools=tools
+                        tools=tools,
+                        max_tokens=2048,
+                        stream=True
                     )
+
+                    # Отображение ответа модели в реальном времени
+                    first_model_output = self.display_stream_response(response_generator)
                 else:
                     logger.warning(f"Функция {func_name} не найдена.")
         else:
             logger.info("Модель не вызвала никаких функций.")
-
-        first_model_output = response.message.content
 
         # Запуск второй модели
         second_model_output = self.run_second_model(first_model_output)
@@ -85,33 +99,63 @@ class LLMModel:
             return None
 
     def run_second_model(self, first_model_output):
+        # Загрузка системного промпта для второй модели
         system_prompt = self.load_prompt('second_model_prompt.txt')
         messages = [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': first_model_output}
         ]
-        response = ollama.chat(
+
+        # Логируем промпты
+        logger.info(f"Промпты перед вызовом второй модели:\n{json.dumps(messages, ensure_ascii=False, indent=2)}")
+
+        response_generator = ollama.chat(
             model=self.model_name,
-            messages=messages
+            messages=messages,
+            max_tokens=2048,
+            stream=True
         )
-        return response.message.content
+
+        # Отображение ответа модели в реальном времени
+        second_model_output = self.display_stream_response(response_generator)
+        return second_model_output
 
     def run_third_model(self, second_model_output):
+        # Загрузка системного промпта для третьей модели
         system_prompt = self.load_prompt('third_model_prompt.txt')
         messages = [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': second_model_output}
         ]
-        response = ollama.chat(
+
+        # Логируем промпты
+        logger.info(f"Промпты перед вызовом третьей модели:\n{json.dumps(messages, ensure_ascii=False, indent=2)}")
+
+        response_generator = ollama.chat(
             model=self.model_name,
-            messages=messages
+            messages=messages,
+            max_tokens=512,
+            stream=True
         )
+
+        # Отображение ответа модели в реальном времени
+        third_model_output = self.display_stream_response(response_generator)
+
         try:
-            result = json.loads(response.message.content)
+            result = json.loads(third_model_output)
             return result.get('passed', True)
         except json.JSONDecodeError:
             logger.error("Ответ третьей модели не является валидным JSON.")
             return True  # Считаем, что проверка пройдена, если JSON некорректен
+
+    def display_stream_response(self, response_generator):
+        output = ""
+        print("Ответ модели:")
+        for chunk in response_generator:
+            print(chunk, end='', flush=True)
+            output += chunk
+        print()  # Перенос строки после завершения ответа
+        return output
 
     def load_prompt(self, filename):
         prompt_path = os.path.join('app', 'llm_prompts', filename)
@@ -131,9 +175,7 @@ class LLMModel:
     def get_function_parameters(self, func):
         # Используем аннотации функций для определения параметров
         params = {}
-        for param_name, param in func.__annotations__.items():
-            if param_name == 'return':
-                continue
+        for param_name, param_type in func.__annotations__.items():
             params[param_name] = {'type': 'string', 'description': ''}
         return {
             'type': 'object',
@@ -142,17 +184,17 @@ class LLMModel:
 
     # Реализация функций, которые может вызывать модель
 
-    def file_content(self, paths: list, extension_filter: str = None) -> str:
+    def file_content(self, paths: list, extension_filter: str = None, max_lines_per_file: int = 600) -> str:
         """
         Получить содержимое файлов по заданным путям с нумерацией строк и форматированием.
         """
-        return get_file_content_with_line_numbers(paths, extension_filter)
+        return get_file_content_with_line_numbers(paths, extension_filter, max_lines_per_file)
 
-    def search_files(self, term: str, max_results: int = 5) -> str:
+    def search_files(self, term: str, extension_filter: str = None, regular: bool = False, max_results: int = 5) -> str:
         """
         Поиск термина в файлах проекта с выводом контекста и нумерацией строк.
         """
-        return search_in_files(term, max_results)
+        return search_in_files(term, extension_filter, regular, max_results)
 
     def check_pep8(self, max_errors: int = 5) -> str:
         """

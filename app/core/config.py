@@ -28,8 +28,10 @@ class LoggingConfig:
         self.backup_count = config.get('backup_count', 5)
 
 
-import toml
-from pathlib import Path
+class PDFConfig:
+    def __init__(self, config):
+        self.wkhtmltopdf_path = config.get('pdf', None)
+
 
 class Config:
     def __init__(self, config_file='config.toml'):
@@ -44,6 +46,7 @@ class Config:
         self.llm = LLMConfig(self.config.get('llm', {}))
         self.paths = PathsConfig(self.config.get('paths', {}))
         self.logging = LoggingConfig(self.config.get('logging', {}))
+        self.pdf = PDFConfig(self.config.get('pdf', {}))
 
     def get(self, section, key, default=None):
         """Получение значения из конфигурации по секции и ключу."""
