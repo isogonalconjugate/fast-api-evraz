@@ -1,5 +1,5 @@
 # app/api/v1/endpoints/router.py
-
+from fastapi import BackgroundTasks
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 import shutil
@@ -18,7 +18,7 @@ config = Config()
 
 
 @router.post("/upload")
-async def upload_zip(file: UploadFile = File(...)):
+async def upload_zip(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     logger.info(f"Получен файл: {file.filename}")
     temp_dir = config.paths.unzip_dir
     os.makedirs(temp_dir, exist_ok=True)
@@ -86,9 +86,23 @@ async def upload_zip(file: UploadFile = File(...)):
     # Отправка PDF отчета клиенту
     pdf_file = BytesIO(pdf_bytes)
     pdf_file.seek(0)
+
+    background_tasks.add_task(cleanup_temp_dirs, extract_to)
+
     return StreamingResponse(
         pdf_file,
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename=report_{os.path.splitext(os.path.basename(file.filename))[0]}.pdf"}
     )
+
+
+def cleanup_temp_dirs(path):
+    try:
+        if os.path.isfile(path):
+            os.remove(path)
+        elif os.path.isdir(path):
+            shutil.rmtree(path)
+        logger.info(f"Deleted: {path}")
+    except Exception as e:
+        logger.error(f"Error deleting {path}: {e}")
