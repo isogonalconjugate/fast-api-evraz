@@ -1,5 +1,5 @@
 [llm]
-model_name = "qwen2.5-coder:32b"
+model_name = "hf.co/msu-rcc-lair/RuadaptQwen2.5-32B-instruct-GGUF"
 
 [paths]
 unzip_dir = "temp_unzipped"
